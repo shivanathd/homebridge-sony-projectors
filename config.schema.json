@@ -1,0 +1,118 @@
+{
+  "pluginAlias": "SonyProjectors",
+  "pluginType": "platform",
+  "singular": true,
+  "customUi": true,
+  "headerDisplay": "Control Sony home-cinema projectors (VPL-VW, VPL-XW, VPL-HW) from HomeKit. On the projector, set **Installation > Remote Start** (or **Network Management**) to **On** so it can be turned on over the network. See the [README](https://github.com/shivanathd/homebridge-sony-projectors#readme) for setup.",
+  "footerDisplay": "Run this plugin as a [child bridge](https://github.com/homebridge/homebridge/wiki/Child-Bridges). Each projector appears as its own TV accessory: add it in the Home app with **Add Accessory > More options** and your Homebridge setup code.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Platform name",
+        "type": "string",
+        "default": "Sony Projectors"
+      },
+      "projectors": {
+        "title": "Projectors",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string",
+              "placeholder": "Projector",
+              "description": "How the projector is named in HomeKit."
+            },
+            "host": {
+              "title": "IP address or hostname",
+              "type": "string",
+              "placeholder": "192.168.1.50",
+              "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9.:-]{0,251}[A-Za-z0-9])?$",
+              "description": "Give the projector a fixed address (a DHCP reservation) so it does not change."
+            },
+            "protocol": {
+              "title": "Control protocol",
+              "type": "string",
+              "default": "auto",
+              "oneOf": [
+                { "title": "Automatic (recommended)", "enum": ["auto"] },
+                { "title": "ADCP: VPL-VW 2016 and later, VPL-XW", "enum": ["adcp"] },
+                { "title": "SDCP / PJ Talk: older VPL-VW and VPL-HW", "enum": ["sdcp"] }
+              ]
+            },
+            "password": {
+              "title": "ADCP password",
+              "type": "string",
+              "x-schema-form": { "type": "password" },
+              "description": "The projector's web administrator password (factory default: Projector). Leave empty if ADCP authentication is off."
+            },
+            "community": {
+              "title": "SDCP community",
+              "type": "string",
+              "placeholder": "SONY",
+              "minLength": 4,
+              "maxLength": 4,
+              "description": "Only for SDCP projectors whose PJ Talk community was changed from SONY."
+            },
+            "port": {
+              "title": "Port",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535,
+              "description": "Only needed for a non-standard port. Requires an explicit protocol (ADCP default 53595, SDCP default 53484)."
+            },
+            "pollInterval": {
+              "title": "Poll interval (seconds)",
+              "type": "integer",
+              "minimum": 3,
+              "maximum": 300,
+              "placeholder": 10,
+              "description": "How often to check the projector while it is on. Standby is checked three times less often."
+            }
+          }
+        }
+      },
+      "options": {
+        "title": "Feature options",
+        "type": "array",
+        "items": { "type": "string", "title": "Feature option" },
+        "description": "Use the Feature Options tab in this plugin's settings instead of editing these by hand."
+      },
+      "debug": {
+        "title": "Debug logging",
+        "type": "boolean",
+        "default": false,
+        "description": "Log protocol traffic for troubleshooting. Passwords are never logged."
+      }
+    }
+  },
+  "layout": [
+    {
+      "key": "projectors",
+      "type": "array",
+      "orderable": false,
+      "buttonText": "Add projector",
+      "items": [
+        "projectors[].name",
+        "projectors[].host",
+        "projectors[].password",
+        {
+          "type": "section",
+          "title": "Advanced",
+          "expandable": true,
+          "expanded": false,
+          "items": [ "projectors[].protocol", "projectors[].port", "projectors[].community", "projectors[].pollInterval" ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "title": "Additional settings",
+      "expandable": true,
+      "expanded": false,
+      "items": [ "name", "debug", "options" ]
+    }
+  ]
+}

@@ -16,10 +16,10 @@ const REMOTE_ACTIONS: FeatureOptionChoice[] = [
   { label: "Do nothing", value: "none" }
 ];
 
-export const featureOptionCategories: FeatureCategoryEntry[] = [
+export const featureOptionCategories: FeatureCategoryEntry<OptionMeta>[] = [
 
   { description: "Projector options.", name: "Device" },
-  { description: "Apple TV Remote options (Control Center > Remote).", name: "Remote" },
+  { description: "Apple TV Remote options (Control Center > Remote).", meta: { requires: "remote" }, name: "Remote" },
   { description: "Picture mode options.", name: "Picture" },
   { description: "Aspect ratio options.", name: "Aspect" },
   { description: "Additional controls.", name: "Controls" },
@@ -27,7 +27,7 @@ export const featureOptionCategories: FeatureCategoryEntry[] = [
   { description: "Logging options.", name: "Log" }
 ];
 
-export const featureOptions: Record<string, FeatureOptionEntry[]> = {
+export const featureOptions: Record<string, FeatureOptionEntry<OptionMeta>[]> = {
 
   Aspect: [
 
@@ -36,7 +36,8 @@ export const featureOptions: Record<string, FeatureOptionEntry[]> = {
   ],
   Controls: [
 
-    { default: false, description: "Add a Picture Mute switch that blanks the image without turning the projector off.", name: "PictureMute" }
+    { default: false, description: "Add a Picture Mute switch that blanks the image without turning the projector off.", meta: { requires: "blank" },
+      name: "PictureMute" }
   ],
   Device: [
 
@@ -67,6 +68,12 @@ export const featureOptions: Record<string, FeatureOptionEntry[]> = {
       name: "Cooling" }
   ]
 };
+
+// `meta.requires` names a capability (see Capabilities in protocol/types.ts). The settings UI hides an option or category when the selected projector lacks it.
+export interface OptionMeta {
+
+  requires?: "blank" | "remote";
+}
 
 // Typed names for every option the code reads, so a typo is a compile error instead of a silently ignored option.
 export const Option = {
