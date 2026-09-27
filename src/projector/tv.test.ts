@@ -5,7 +5,6 @@ import { capturingLog, waitUntil } from "homebridge-plugin-utils/testing";
 import { featureOptionCategories, featureOptions } from "../options.ts";
 import type { FakeAdcpOptions } from "../protocol/fake-adcp.helpers.ts";
 import type { FakeApi } from "../fake-api.helpers.ts";
-import type { HomebridgePluginLogging } from "homebridge-plugin-utils";
 import { ProjectorCache } from "./cache.ts";
 import type { ProjectorConfig } from "../config.ts";
 import { ProjectorController } from "./controller.ts";
