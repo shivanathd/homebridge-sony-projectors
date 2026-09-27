@@ -84,4 +84,23 @@ describe("CommandQueue", () => {
     await waiting;
     await assert.rejects(queue.run(async () => "late"), (error: unknown) => isProjectorError(error) && (error.code === ErrorCode.ABORTED));
   });
+
+  test("a job waiting out the pacing gap when the queue closes is cancelled, not run", async () => {
+
+    const queue = new CommandQueue({ pacingMs: 100 });
+    let ran = false;
+
+    await queue.run(async () => "first");
+
+    const pacedJob = assert.rejects(queue.run(async () => {
+
+      ran = true;
+    }), (error: unknown) => isProjectorError(error) && (error.code === ErrorCode.ABORTED));
+
+    await sleep(20);
+    queue.close();
+    await pacedJob;
+    await sleep(120);
+    assert.equal(ran, false);
+  });
 });

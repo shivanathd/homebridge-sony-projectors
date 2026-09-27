@@ -95,28 +95,28 @@ export class CompanionAccessory {
       const name = (group === "picture") ? pictureModeLabel(token) + " Mode" : "Aspect " + aspectLabel(token).replace(":1", "");
       const current = (): boolean => (controller.store.get("power") === "on") && (controller.store.get(group === "picture" ? "pictureMode" : "aspect") === token);
 
-      acquireService(this.accessory, Services.Switch, name, subtype(token), (service) => {
+      // Handlers are attached on every configure, not only when the service is created: a service restored from Homebridge's accessory cache has none.
+      const service = acquireService(this.accessory, Services.Switch, name, subtype(token));
 
-        service.getCharacteristic(Characteristic.On)
-          .onGet(this.#available(current))
-          .onSet(async (value: CharacteristicValue) => {
+      service.getCharacteristic(Characteristic.On)
+        .onGet(this.#available(current))
+        .onSet(async (value: CharacteristicValue) => {
 
-            const resync = (): void => {
+          const resync = (): void => {
 
-              service.updateCharacteristic(Characteristic.On, current());
-            };
+            service.updateCharacteristic(Characteristic.On, current());
+          };
 
-            // A mode cannot be turned off, only replaced by another one.
-            if(!value) {
+          // A mode cannot be turned off, only replaced by another one.
+          if(!value) {
 
-              setTimeout(resync, 50);
+            setTimeout(resync, 50);
 
-              return;
-            }
+            return;
+          }
 
-            await runFromHomeKit(api, async () => (group === "picture") ? controller.setPictureMode(token) : controller.setAspect(token), resync);
-          });
-      });
+          await runFromHomeKit(api, async () => (group === "picture") ? controller.setPictureMode(token) : controller.setAspect(token), resync);
+        });
     }
 
     this.#refresh(group === "picture" ? "pictureMode" : "aspect");
@@ -134,13 +134,12 @@ export class CompanionAccessory {
 
     const current = (): boolean => controller.store.get("blank") ?? false;
 
-    acquireService(this.accessory, Services.Switch, "Picture Mute", Subtype.pictureMute, (service) => {
+    const service = acquireService(this.accessory, Services.Switch, "Picture Mute", Subtype.pictureMute);
 
-      service.getCharacteristic(Characteristic.On)
-        .onGet(this.#available(current))
-        .onSet(async (value: CharacteristicValue) => runFromHomeKit(api, async () => controller.setBlank(Boolean(value)),
-          () => service.updateCharacteristic(Characteristic.On, current())));
-    });
+    service.getCharacteristic(Characteristic.On)
+      .onGet(this.#available(current))
+      .onSet(async (value: CharacteristicValue) => runFromHomeKit(api, async () => controller.setBlank(Boolean(value)),
+        () => service.updateCharacteristic(Characteristic.On, current())));
   }
 
   #configureSensor(subtype: string, name: string, wanted: boolean, detected: () => boolean): void {
@@ -153,10 +152,8 @@ export class CompanionAccessory {
       return;
     }
 
-    acquireService(this.accessory, Services.OccupancySensor, name, subtype, (service) => {
-
-      service.getCharacteristic(Characteristic.OccupancyDetected).onGet(() => this.#occupancy(detected()));
-    });
+    acquireService(this.accessory, Services.OccupancySensor, name, subtype).getCharacteristic(Characteristic.OccupancyDetected)
+      .onGet(() => this.#occupancy(detected()));
 
     this.#refresh("power");
   }

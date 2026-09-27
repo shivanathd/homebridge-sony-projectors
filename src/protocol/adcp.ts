@@ -30,6 +30,7 @@ export class AdcpTransport implements ProjectorTransport {
 
   readonly #debug: (message: string) => void;
   readonly #host: string;
+  readonly #inFlight = new Set<() => void>();
   readonly #password: string;
   readonly #port: number;
   readonly #queue: CommandQueue;
@@ -47,9 +48,11 @@ export class AdcpTransport implements ProjectorTransport {
     this.endpoint = host + ":" + String(port);
   }
 
+  // Stop everything: waiting commands are rejected and a connection already on the wire is cut, so nothing talks to the projector after shutdown.
   public close(): void {
 
     this.#queue.close();
+    [...this.#inFlight].forEach((cancel) => cancel());
   }
 
   public async getPower(): Promise<PowerState> {
@@ -225,6 +228,7 @@ export class AdcpTransport implements ProjectorTransport {
 
         settled = true;
         clearTimeout(timer);
+        this.#inFlight.delete(cancel);
         socket.destroy();
 
         if(error) {
@@ -239,6 +243,9 @@ export class AdcpTransport implements ProjectorTransport {
 
       const timer = setTimeout(() => finish(new ProjectorError(ErrorCode.NET_TIMEOUT, this.endpoint + ": no reply within " + String(this.#timeoutMs) +
         " ms (" + phase + ").")), this.#timeoutMs);
+      const cancel = (): void => finish(new ProjectorError(ErrorCode.ABORTED, this.endpoint + ": connection closed because the plugin is shutting down."));
+
+      this.#inFlight.add(cancel);
 
       const send = (line: string, trace = line): void => {
 

@@ -79,6 +79,14 @@ export class CommandQueue {
           await new Promise((resolve) => setTimeout(resolve, wait));
         }
 
+        // The queue may have been closed while this job waited out the pacing gap.
+        if(this.#closed) {
+
+          job.reject(new ProjectorError(ErrorCode.ABORTED, "The command was cancelled because the connection to the projector is shutting down."));
+
+          continue;
+        }
+
         try {
 
           job.resolve(await job.run());

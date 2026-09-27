@@ -1,5 +1,6 @@
 /* companion.test.ts: Picture-mode and aspect switches, Picture Mute, and the automation sensors. */
 import { after, describe, test } from "node:test";
+import { capturingLog, waitUntil } from "homebridge-plugin-utils/testing";
 import { featureOptionCategories, featureOptions } from "../options.ts";
 import { CompanionAccessory } from "./companion.ts";
 import type { FakeAdcpOptions } from "../protocol/fake-adcp.helpers.ts";
@@ -9,10 +10,8 @@ import type { ProjectorConfig } from "../config.ts";
 import { ProjectorController } from "./controller.ts";
 import type { Service } from "homebridge";
 import assert from "node:assert/strict";
-import { capturingLog } from "homebridge-plugin-utils/testing";
 import { createFakeApi } from "../fake-api.helpers.ts";
 import { startFakeAdcp } from "../protocol/fake-adcp.helpers.ts";
-import { waitUntil } from "homebridge-plugin-utils/testing";
 
 const TIMINGS = { authPauseMs: 100, backoffCeilingMs: 50, faultsEveryMs: 0, lightHoursEveryMs: 0, pollMs: 30, standbyPollMs: 30, transitionPollMs: 20 };
 const cleanups: (() => unknown)[] = [];
