@@ -71,7 +71,7 @@ describe("ProjectorController: polling", () => {
     assert.equal(controller.store.get("power"), "on");
     assert.equal(controller.store.get("input"), "hdmi2");
     await waitUntil(() => controller.store.get("lightHours") === 900, { description: "light hours", timeoutMs: 2000 });
-    assert.equal(controller.identity.model, "VPL-VW290ES");
+    await waitUntil(() => controller.identity.model === "VPL-VW290ES", { description: "identity", timeoutMs: 2000 });
     assert.ok(controller.capabilities.pictureModes.includes("reference"));
   });
 
