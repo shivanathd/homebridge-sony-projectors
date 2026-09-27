@@ -36,6 +36,9 @@ export interface FakeAdcpOptions {
   fragment?: boolean;
   password?: string;
 
+  // Listen on this port instead of a random free one.
+  port?: number;
+
   // Accept connections but never send anything.
   silent?: boolean;
   state?: Partial<FakeAdcpState>;
@@ -294,7 +297,7 @@ export async function startFakeAdcp(options: FakeAdcpOptions = {}): Promise<Fake
     });
   });
 
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve) => server.listen(options.port ?? 0, "127.0.0.1", resolve));
 
   return {
 

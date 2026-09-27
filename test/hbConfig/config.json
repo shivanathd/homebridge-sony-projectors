@@ -1,0 +1,18 @@
+{
+  "bridge": {
+    "name": "Sony Projectors Dev",
+    "username": "0E:5A:11:22:33:44",
+    "port": 51899,
+    "pin": "031-45-154"
+  },
+  "platforms": [
+    {
+      "platform": "SonyProjectors",
+      "projectors": [
+        { "name": "Dev Projector", "host": "127.0.0.1", "protocol": "adcp", "port": 55595, "password": "Projector", "pollInterval": 5 }
+      ],
+      "options": [ "Enable.Picture.Switches", "Enable.Sensors.Ready", "Enable.Controls.PictureMute" ],
+      "debug": false
+    }
+  ]
+}
