@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "exclude": ["dist", "node_modules", "homebridge-ui/public/lib"],
+  "extends": "./node_modules/homebridge-plugin-utils/build/tsconfig.plugin.json",
+  "include": ["src"]
+}

@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "exclude": ["dist", "node_modules", "src/**/*.test.ts", "src/**/*.helpers.ts"],
+  "extends": "./node_modules/homebridge-plugin-utils/build/tsconfig.plugin.json",
+  "include": ["src"]
+}

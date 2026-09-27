@@ -1,0 +1,9 @@
+node_modules/
+dist/
+homebridge-ui/public/lib/
+coverage/
+*.tgz
+.DS_Store
+test/hbConfig/persist/
+test/hbConfig/accessories/
+test/hbConfig/backups/
