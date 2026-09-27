@@ -7,6 +7,17 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+    # TypeScript and ESLint follow the versions homebridge-plugin-utils' presets are built for, and @types/node matches the lowest supported Node.js (22).
+    # Major bumps of these are done by hand, together with the matching preset or engines change.
+    ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     open-pull-requests-limit: 5
   - package-ecosystem: github-actions
     directory: /
