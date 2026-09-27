@@ -1,6 +1,6 @@
 /* index.ts: Plugin entry point. */
-import type { API } from "homebridge";
 import { PLATFORM_NAME, PLUGIN_NAME } from "./settings.ts";
+import type { API } from "homebridge";
 
 export default (api: API): void => {
 
