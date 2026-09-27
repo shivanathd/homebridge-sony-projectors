@@ -4,6 +4,8 @@
  *
  * Pair it with `npm run dev`, which starts Homebridge with test/hbConfig/config.json pointed at this fake.
  */
+/* eslint-disable no-console */
+// This is a command-line tool, so it reports to the console.
 import { parseArgs } from "node:util";
 import { startFakeAdcp } from "./protocol/fake-adcp.helpers.ts";
 
