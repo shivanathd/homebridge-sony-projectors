@@ -1,0 +1,73 @@
+# Continuous integration: lint, typecheck, test on every supported Node.js and Homebridge version, build, and check the package and generated docs.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }} / Homebridge ${{ matrix.homebridge }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22.20", "24", "26"]
+        homebridge: ["1.11.4", "2.4.0"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Use Homebridge ${{ matrix.homebridge }}
+        if: matrix.homebridge != '2.4.0'
+        run: npm install --no-save --ignore-scripts homebridge@${{ matrix.homebridge }}
+      - run: npm test
+
+  quality:
+    name: Lint, typecheck, build, package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Generated docs are up to date
+        run: npm run check-docs
+      - name: Package contents
+        run: |
+          npm pack --dry-run --json > pack.json
+          node -e '
+            const [{ files, size }] = require("./pack.json");
+            const paths = files.map((f) => f.path);
+            const bad = paths.filter((p) => /\.test\.|\.helpers\.|^src\/|^test\/|\.map$/.test(p));
+            console.log(paths.length + " files, " + size + " bytes");
+            if(bad.length) { console.error("Unexpected files in package:", bad); process.exit(1); }
+            for(const required of ["dist/index.js", "config.schema.json", "homebridge-ui/server.js", "homebridge-ui/public/index.html", "LICENSE"]) {
+              if(!paths.includes(required)) { console.error("Missing from package:", required); process.exit(1); }
+            }
+          '
+      - name: Coverage
+        run: npm run test:coverage

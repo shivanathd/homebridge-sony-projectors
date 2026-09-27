@@ -1,6 +1,6 @@
 # ADR-0003: In-house protocol clients; ADCP first, SDCP fallback, SDAP listener
 
-- Status: Proposed · Date: 2026-09-27
+- Status: **Accepted** · Date: 2026-09-27
 
 ## Context
 `sony-sdcp-com` is abandoned and unsafe (unhandled rejections, no framing, wrong length
@@ -44,3 +44,10 @@ fake-projector tests (ADR-0007).
   probe must detect it (`err_cmd` / `err_inactive`) and hide the feature automatically.
 - **Consequence:** ADCP is built and tested first against this device. SDCP moves to a
   later phase and ships only if the old-model differentiator is still wanted (ADR-0001).
+
+## Implementation notes
+Implemented in v0.1.0 (`src/protocol/`). Deviations:
+- One connection per *session*. A session can batch several commands (a poll cycle, identify, capability discovery) behind a single handshake.
+- `close()` cuts connections already on the wire and cancels jobs waiting out the pacing gap. Nothing talks to a projector after shutdown.
+- SDCP remote keys are not offered. Sony does not publish per-model IR codes, so `capabilities.remote` is false on SDCP.
+- The SDAP listener is deferred to a later release.

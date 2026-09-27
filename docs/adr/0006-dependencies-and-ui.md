@@ -43,3 +43,6 @@ the full UniFi Protect-style experience:
 - **Replaceability:** all library usage goes through `src/lib/` adapters (`options`, `log`,
   `retry`, `services`), so it can be swapped out if the library is abandoned.
 - The protocol layer (ADR-0003) still imports **nothing** from it, so it stays zero-dependency and reusable.
+
+## Implementation notes
+Implemented in v0.1.0 (`homebridge-ui/`, `src/probe.ts`, `src/options.ts`). Capability metadata on the options (`meta.requires`) hides unsupported options per projector. Rendering and the first-run flow were verified in a browser against a stubbed Homebridge UI.

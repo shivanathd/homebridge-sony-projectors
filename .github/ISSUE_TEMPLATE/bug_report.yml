@@ -1,0 +1,45 @@
+name: Bug report
+description: Something is not working as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [troubleshooting guide](https://github.com/shivanathd/homebridge-sony-projectors/blob/main/docs/Troubleshooting.md) first: most log lines carry
+        an `SPJ-...` code with a fix. Please do not include passwords (the plugin never logs them, but check anything you paste).
+  - type: input
+    id: model
+    attributes:
+      label: Projector model
+      placeholder: VPL-VW290ES
+    validations:
+      required: true
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Protocol
+      options: [ADCP, SDCP / PJ Talk, Not sure]
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Plugin, Homebridge and Node.js versions.
+      placeholder: plugin 0.1.0, Homebridge 2.4.0, Node.js 24.8.0
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Turn on "Debug logging" in the plugin settings, reproduce the problem, and paste the log lines from this plugin.
+      render: text
+    validations:
+      required: true

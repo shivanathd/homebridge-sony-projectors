@@ -1,6 +1,6 @@
 # ADR-0002: Dynamic platform, ESM TypeScript, Homebridge 1.8+/2.x, Node 22/24/26
 
-- Status: Proposed · Date: 2026-09-27 · Applies if ADR-0001 = new plugin
+- Status: **Accepted** · Date: 2026-09-27
 
 ## Context
 Verification requires a dynamic platform. Accessory plugins and callback handlers are legacy.
@@ -23,3 +23,6 @@ One modern toolchain and no Babel or Jest. Supporting Homebridge 1.8 means we ca
 
 ## Update 2026-09-27
 The tsconfig and ESLint base come from `homebridge-plugin-utils` presets (ADR-0006).
+
+## Implementation notes
+Implemented in v0.1.0. TypeScript 5.9 and ESLint 9 are pinned to match the homebridge-plugin-utils presets. `engines` support for Homebridge 1.11.4 and 2.4.0 is verified by the CI matrix (Node 22.20, 24, 26).

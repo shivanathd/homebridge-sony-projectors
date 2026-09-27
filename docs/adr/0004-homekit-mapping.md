@@ -1,6 +1,6 @@
 # ADR-0004: HomeKit mapping, a Television accessory published externally
 
-- Status: Proposed · Date: 2026-09-27
+- Status: **Accepted** · Date: 2026-09-27
 
 ## Context
 HomeKit allows one television per bridge and has no projector category. The Apple Home app
@@ -22,3 +22,6 @@ ignores custom characteristics, which is why the old plugin's aspect-ratio contr
 
 ## Consequences
 Users pair the projector once per bridge. Several projectors work because each is external.
+
+## Implementation notes
+Implemented in v0.1.0. **Deviation:** accessory identity is `scopeSafeId(host)`, not the serial number. External accessories must be published at startup, even when the projector is unreachable, so the identity cannot wait for a network answer. Changing a projector's host creates a new accessory; this is documented.

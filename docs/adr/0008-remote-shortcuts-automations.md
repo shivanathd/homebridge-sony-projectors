@@ -1,6 +1,6 @@
 # ADR-0008: Apple TV Remote-style control, Shortcuts and automation surface
 
-- Status: Proposed · Date: 2026-09-27
+- Status: **Accepted** · Date: 2026-09-27
 
 ## Context
 The owner wants Apple TV Remote-style control plus Shortcuts and automations. HomeKit gives
@@ -53,3 +53,11 @@ already covered by the switches above.
 Sensors and switches live on a bridged **companion accessory**, because extra services on an
 external TV tile get cluttered. Each projector is then one external TV plus one bridged
 companion, and the UUIDs of both derive from the serial number.
+
+## Implementation notes
+Implemented in v0.1.0, with changes:
+- **Cooling is an OccupancySensor**, like Ready. It is simpler to automate on than a contact sensor.
+- **No FilterMaintenance.** The Home app shows a standalone filter service as unsupported. Lamp hours are shown in the settings UI and the logs instead.
+- **Deferred:** lens memory (the VW290ES has a manual lens; add it once verified on a motorised model), the volume mapping, and the Matter outlet.
+- **Back key:** defaults to ADCP `return`, as used by working implementations, instead of `reset`.
+- **StatusFault** is on the Ready sensor, not the TV service. HomeKit's Television service does not allow `StatusFault`.

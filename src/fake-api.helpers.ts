@@ -3,18 +3,26 @@
  * Only the platform-facing surface is faked (registration, lifecycle events, storage path). Services, characteristics, validation and HapStatusError are the real
  * implementations, so tests exercise exactly what Homebridge would run.
  */
-import * as hap from "@homebridge/hap-nodejs";
+import type * as Hap from "@homebridge/hap-nodejs";
 import type { API, PlatformAccessory } from "homebridge";
 import { mkdtempSync, rmSync } from "node:fs";
 import { EventEmitter } from "node:events";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-// homebridge does not export PlatformAccessory, so load it from its file. Tests only; the plugin receives it as api.platformAccessory at runtime.
-const { PlatformAccessory: PlatformAccessoryClass } = await import(new URL("../node_modules/homebridge/dist/platformAccessory.js", import.meta.url).href) as {
+// Homebridge 2 ships HAP-NodeJS as @homebridge/hap-nodejs, Homebridge 1 as hap-nodejs. Use whichever is installed, so CI can test against both.
+const hap: typeof Hap = await (import("@homebridge/hap-nodejs") as Promise<typeof Hap>).catch(async () => import("hap-" + "nodejs") as Promise<typeof Hap>);
+
+interface PlatformAccessoryModule {
 
   PlatformAccessory: new (name: string, uuid: string, category?: number) => PlatformAccessory;
-};
+}
+
+// homebridge does not export PlatformAccessory, so load it from its file: dist/ on Homebridge 2, lib/ on Homebridge 1. Tests only; at runtime the plugin
+// receives it as api.platformAccessory.
+const platformAccessoryUrl = (folder: string): string => new URL("../node_modules/homebridge/" + folder + "/platformAccessory.js", import.meta.url).href;
+const { PlatformAccessory: PlatformAccessoryClass } = await (import(platformAccessoryUrl("dist")) as Promise<PlatformAccessoryModule>)
+  .catch(async () => import(platformAccessoryUrl("lib")) as Promise<PlatformAccessoryModule>);
 
 export interface FakeApi {
 

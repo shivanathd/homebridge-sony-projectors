@@ -1,0 +1,22 @@
+name: Projector model report
+description: Tell us how the plugin works with your projector model.
+labels: [compatibility]
+body:
+  - type: input
+    id: model
+    attributes:
+      label: Projector model
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options: [Everything works, Works with issues, Does not work]
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Which protocol was detected, which inputs, picture modes and aspect ratios appeared, and anything that did not work.

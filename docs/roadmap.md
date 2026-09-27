@@ -1,5 +1,7 @@
 # Roadmap: Sony projector Homebridge plugin
 
+**v0.1.0 (2026-09-27)** delivered phases 0 to 4b, except the SDAP listener. The remaining items are the SDAP listener, npm publication and Homebridge verification (phase 5), lens memory, and a Matter outlet.
+
 Status: draft, sequenced 2026-09-27. Each phase ends with something shippable and tested.
 Decisions live in [adr/](adr/); evidence is in the [research report](research/2026-09-27-sony-projector-homebridge-research.md).
 

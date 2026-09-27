@@ -1,6 +1,6 @@
 # ADR-0009: Actionable error logging and diagnostics
 
-- Status: Proposed · Date: 2026-09-27
+- Status: **Accepted** · Date: 2026-09-27
 
 ## Context
 The old plugin used `console.log("error in geting power state")` and then crashed. Users
@@ -31,3 +31,9 @@ management off.
   output for bug reports, with secrets redacted.
 - **docs/Troubleshooting.md** keyed by error code; every log line mentions its code so users
   can search for it.
+
+## Implementation notes
+Implemented in v0.1.0.
+- `src/protocol/errors.ts` (codes and hints) and `src/lib/reporter.ts` (de-duplication, a 10-minute summary, recovery line).
+- `docs/Troubleshooting.md` has one section per code, enforced by a test.
+- The diagnostics view is the settings UI's projector info panel together with the plugin's `debug` option.
