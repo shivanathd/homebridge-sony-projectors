@@ -61,8 +61,9 @@ signal). Values from the plugin settings are also rejected before sending if the
 
 ## SPJ-PROTO-UNSUPPORTED
 
-This model does not have the command. The plugin stops offering that feature for the projector. If you think your model should support it, please open an
-issue with a debug log.
+This model does not have the command. When the plugin connects it asks the projector what it supports, and features reported as unsupported are not offered.
+If you see this code for a switch or button that is offered, or you think your model should support the feature, please open an issue with your model and a
+debug log.
 
 ## SPJ-PROTO-INVALID
 

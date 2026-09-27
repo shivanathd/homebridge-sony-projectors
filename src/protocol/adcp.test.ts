@@ -213,3 +213,30 @@ describe("AdcpTransport: capabilities", () => {
     assert.equal(capabilities.lightHours, false);
   });
 });
+
+describe("AdcpTransport: poll", () => {
+
+  test("reads power, picture settings, lamp hours and faults over a single connection", async () => {
+
+    const { fake, transport } = await setup({ password: "Projector", state: { errors: ["err_temp"], input: "hdmi2", power: "on", timer: 321 } },
+      { password: "Projector" });
+    const result = await transport.poll({ blank: true, faults: true, lightHours: true, picture: true });
+
+    assert.equal(fake.connections, 1);
+    assert.equal(fake.authAttempts, 1);
+    assert.equal(result.power, "on");
+    assert.deepEqual(result.input, { value: "hdmi2" });
+    assert.deepEqual(result.blank, { value: false });
+    assert.deepEqual(result.lightHours, { value: 321 });
+    assert.deepEqual(result.faults, { value: { errors: ["err_temp"], warnings: [] } });
+  });
+
+  test("readings unavailable in standby come back as per-reading errors, not a failed poll", async () => {
+
+    const { transport } = await setup();
+    const result = await transport.poll({ blank: false, faults: false, lightHours: false, picture: true });
+
+    assert.equal(result.power, "standby");
+    assert.ok(result.input && ("error" in result.input) && isProjectorError(result.input.error) && (result.input.error.code === ErrorCode.BUSY));
+  });
+});

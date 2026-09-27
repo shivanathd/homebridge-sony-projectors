@@ -31,7 +31,12 @@ const SPEAKS_ADCP = new Set<string>([ ErrorCode.AUTH_FAILED, ErrorCode.AUTH_REQU
 // Errors that prove an SDCP projector is on the other end.
 const SPEAKS_SDCP = new Set<string>([ ErrorCode.BUSY, ErrorCode.COMMUNITY ]);
 
-async function probe(transport: ProjectorTransport, proof: Set<string>): Promise<ProjectorError | null> {
+async function probe(transport: ProjectorTransport, proof: Set<string>, signal?: AbortSignal): Promise<ProjectorError | null> {
+
+  // Aborting cuts the probe's connection, so nothing talks to the projector after shutdown.
+  const onAbort = (): void => transport.close();
+
+  signal?.addEventListener("abort", onAbort, { once: true });
 
   try {
 
@@ -48,20 +53,38 @@ async function probe(transport: ProjectorTransport, proof: Set<string>): Promise
     return isProjectorError(error) ? error : new ProjectorError(ErrorCode.PROTO_INVALID, String(error));
   } finally {
 
+    signal?.removeEventListener("abort", onAbort);
     transport.close();
   }
 }
 
-export async function detectProtocol(settings: ConnectionSettings): Promise<Protocol> {
+export async function detectProtocol(settings: ConnectionSettings, signal?: AbortSignal): Promise<Protocol> {
 
-  const adcpError = await probe(createTransport(settings, "adcp"), SPEAKS_ADCP);
+  const aborted = (): ProjectorError => new ProjectorError(ErrorCode.ABORTED, "Protocol detection was cancelled because Homebridge is shutting down.");
+
+  if(signal?.aborted) {
+
+    throw aborted();
+  }
+
+  const adcpError = await probe(createTransport(settings, "adcp"), SPEAKS_ADCP, signal);
+
+  if(signal?.aborted) {
+
+    throw aborted();
+  }
 
   if(!adcpError) {
 
     return "adcp";
   }
 
-  const sdcpError = await probe(createTransport(settings, "sdcp"), SPEAKS_SDCP);
+  const sdcpError = await probe(createTransport(settings, "sdcp"), SPEAKS_SDCP, signal);
+
+  if(signal?.aborted) {
+
+    throw aborted();
+  }
 
   if(!sdcpError) {
 

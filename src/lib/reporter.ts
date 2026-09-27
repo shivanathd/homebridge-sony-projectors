@@ -66,6 +66,12 @@ export class ErrorReporter {
     return this.#episode !== null;
   }
 
+  // The code of the failure currently being reported, if any.
+  public get code(): string | null {
+
+    return this.#episode?.code ?? null;
+  }
+
   public failure(context: string, error: unknown): void {
 
     const now = this.#now();
@@ -85,7 +91,7 @@ export class ErrorReporter {
       return;
     }
 
-    this.#episode = { code, count: 1, lastSummaryAt: now, startedAt: episode?.startedAt ?? now };
+    this.#episode = { code, count: (episode?.count ?? 0) + 1, lastSummaryAt: now, startedAt: episode?.startedAt ?? now };
 
     const level = ERROR_LEVEL.has(code) ? "error" : "warn";
 

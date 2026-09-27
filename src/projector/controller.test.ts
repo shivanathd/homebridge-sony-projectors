@@ -222,3 +222,73 @@ describe("ProjectorController: commands", () => {
     assert.ok(loggedAt(log.entries, "info", "Switching input to HDMI 2"));
   });
 });
+
+describe("ProjectorController: review regressions", () => {
+
+  test("each steady-state poll uses one connection", async () => {
+
+    const { controller, fake } = await setup({ password: "Projector", state: { power: "on" } }, { password: "Projector" });
+
+    await waitUntil(() => controller.store.get("input") === "hdmi1", { description: "converged", timeoutMs: 2000 });
+    await sleep(100);
+
+    const connections = fake.connections;
+    const polls = fake.received.filter((line) => line === "power_status ?").length;
+
+    await sleep(300);
+
+    const newPolls = fake.received.filter((line) => line === "power_status ?").length - polls;
+
+    // A poll straddling either end of the window can shift the count by one; the bug this guards against (one connection per reading) would be 5x.
+    assert.ok(newPolls >= 3, "polls " + String(newPolls));
+    assert.ok(Math.abs((fake.connections - connections) - newPolls) <= 1, "connections " + String(fake.connections - connections) + " for " + String(newPolls) +
+      " polls");
+  });
+
+  test("aborting during protocol detection opens no further connections", async () => {
+
+    let sdcpConnections = 0;
+    const sdcp = createServer((socket) => {
+
+      sdcpConnections++;
+      socket.destroy();
+    });
+
+    await new Promise<void>((resolve) => sdcp.listen(0, "127.0.0.1", resolve));
+    cleanups.push(async () => new Promise<void>((resolve) => sdcp.close(() => resolve())));
+
+    // An ADCP port that accepts but never answers keeps detection busy until the command timeout.
+    const silent = await startFakeAdcp({ silent: true });
+
+    cleanups.push(async () => silent.close());
+
+    const abort = new AbortController();
+    const controller = new ProjectorController({ commandTimeoutMs: 300, config: projectorConfig(silent.port, { protocol: "auto",
+      sdcpPort: (sdcp.address() as { port: number }).port }), isEnabled: () => true, log: capturingLog(), pacingMs: 0, signal: abort.signal, timings: TIMINGS });
+
+    controller.start();
+    await sleep(50);
+    abort.abort();
+    await sleep(700);
+
+    assert.equal(sdcpConnections, 0);
+  });
+
+  test("HomeKit writes fail fast while the projector is known to be unreachable", async () => {
+
+    const log = capturingLog();
+    const abort = new AbortController();
+    const controller = new ProjectorController({ config: projectorConfig(await closedPort()), isEnabled: () => true, log, pacingMs: 0, signal: abort.signal,
+      timings: TIMINGS });
+
+    cleanups.push(() => abort.abort());
+    controller.start();
+    await waitUntil(() => loggedAt(log.entries, "warn", "SPJ-NET-UNREACHABLE"), { description: "outage noticed", timeoutMs: 2000 });
+
+    const started = performance.now();
+
+    await assert.rejects(controller.setPower(true), (error: unknown) => isProjectorError(error) && (error.code === ErrorCode.NET_UNREACHABLE));
+    // Well under the 5 s network timeout (and HAP's 3 s slow-write warning); generous enough for a loaded CI runner.
+    assert.ok((performance.now() - started) < 1000);
+  });
+});

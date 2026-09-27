@@ -22,8 +22,8 @@ export interface FakeSdcp {
   readonly state: FakeSdcpState;
 }
 
-export async function startFakeSdcp({ community = "SONY", fragment = false, state: initial = {} }: { community?: string; fragment?: boolean;
-  state?: Partial<FakeSdcpState>; } = {}): Promise<FakeSdcp> {
+export async function startFakeSdcp({ community = "SONY", drop = [], fragment = false, state: initial = {} }: { community?: string; drop?: number[];
+  fragment?: boolean; state?: Partial<FakeSdcpState>; } = {}): Promise<FakeSdcp> {
 
   const state: FakeSdcpState = { aspect: 0x0001, errorBits: 0, input: 0x0002, lampHours: 1500, muted: 0, pictureMode: 0x0000, power: 0, ...initial };
   const sockets = new Set<Socket>();
@@ -139,6 +139,12 @@ export async function startFakeSdcp({ community = "SONY", fragment = false, stat
       }
 
       reader = new FrameReader();
+
+      // Simulate a lost reply for the items listed in `drop`.
+      if(drop.includes(decodeFrame(request).item)) {
+
+        return;
+      }
 
       const response = handle(request);
 

@@ -41,7 +41,8 @@ const HINTS: Record<ErrorCode, string> = {
     "Network Management is On, and that ADCP (or PJ Talk) is enabled in its network settings.",
   [ErrorCode.PROTO_INVALID]: "The projector sent a reply the plugin did not understand. Turn on debug logging and open an issue with the log attached.",
   [ErrorCode.PROTO_REJECTED]: "The projector refused the command's value. The value may not be valid for this model or input signal.",
-  [ErrorCode.PROTO_UNSUPPORTED]: "This projector model does not support the command. The plugin will stop offering this feature for this projector."
+  [ErrorCode.PROTO_UNSUPPORTED]: "This projector model does not support the command. Features the projector reports as unsupported when the plugin connects " +
+    "are not offered; if you see this for a feature that is offered, please open an issue with your model."
 };
 
 export class ProjectorError extends Error {

@@ -220,7 +220,10 @@ export class CompanionAccessory {
 
         const failure = new api.hap.HapStatusError(HAPStatus.SERVICE_COMMUNICATION_FAILURE);
 
-        [ ...this.#servicesIn("picture"), ...this.#servicesIn("aspect") ].forEach((service) => service.updateCharacteristic(Characteristic.On, failure));
+        const mute = this.accessory.getServiceById(api.hap.Service.Switch, Subtype.pictureMute);
+
+        [ ...this.#servicesIn("picture"), ...this.#servicesIn("aspect"), ...(mute ? [mute] : []) ]
+          .forEach((service) => service.updateCharacteristic(Characteristic.On, failure));
       }
     }
   }

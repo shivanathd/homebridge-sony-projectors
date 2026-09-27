@@ -6,7 +6,7 @@
  * Every interaction is a short-lived "session": connect, authenticate, send one or more commands (each waiting for its reply), disconnect. There is never a socket
  * left open to go stale, and a whole poll cycle shares one handshake. Sessions are serialized and paced through a CommandQueue.
  */
-import type { Capabilities, Faults, PowerState, ProjectorIdentity, ProjectorTransport, TransportOptions } from "./types.ts";
+import type { Capabilities, Faults, PollRequest, PollResult, PowerState, ProjectorIdentity, ProjectorTransport, Reading, TransportOptions } from "./types.ts";
 import { ErrorCode, ProjectorError, fromSocketError } from "./errors.ts";
 import { hashChallenge, isSafeToken, parseInfoRange, parseJsonList, parsePower, parseReply, parseTimer } from "./adcp-parse.ts";
 import type { AdcpReply } from "./adcp-parse.ts";
@@ -123,6 +123,100 @@ export class AdcpTransport implements ProjectorTransport {
     expectOk("key", (await this.#session([command("key", key)], { priority: true }))[0]);
   }
 
+  // A whole poll in one authenticated connection. Error replies for individual readings (err_inactive in standby, err_cmd on models without the command) are
+  // returned per reading; only a failure to read power rejects.
+  public async poll(request: PollRequest): Promise<PollResult> {
+
+    const reads: [keyof Omit<PollResult, "power">, string[]][] = [];
+
+    if(request.picture) {
+
+      reads.push([ "input", ["input ?"] ], [ "pictureMode", ["picture_mode ?"] ], [ "aspect", ["aspect ?"] ]);
+    }
+
+    if(request.blank) {
+
+      reads.push([ "blank", ["blank ?"] ]);
+    }
+
+    if(request.lightHours) {
+
+      reads.push([ "lightHours", ["timer ?"] ]);
+    }
+
+    if(request.faults) {
+
+      reads.push([ "faults", [ "error ?", "warning ?" ] ]);
+    }
+
+    const replies = await this.#session([ "power_status ?", ...reads.flatMap(([ , commands ]) => commands) ]);
+    const result: PollResult = { power: parsePower(expectValue("power_status", replies[0])) };
+    let index = 1;
+
+    const reading = <T>(name: string, parse: (value: string) => T): Reading<T> => {
+
+      try {
+
+        return { value: parse(expectValue(name, replies[index++])) };
+      } catch(error) {
+
+        return { error };
+      }
+    };
+
+    for(const [key] of reads) {
+
+      switch(key) {
+
+        case "input":
+
+          result.input = reading("input", (value) => value.toLowerCase());
+
+          break;
+
+        case "pictureMode":
+
+          result.pictureMode = reading("picture_mode", (value) => value.toLowerCase());
+
+          break;
+
+        case "aspect":
+
+          result.aspect = reading("aspect", (value) => value.toLowerCase());
+
+          break;
+
+        case "blank":
+
+          result.blank = reading("blank", (value) => value.toLowerCase() === "on");
+
+          break;
+
+        case "lightHours":
+
+          result.lightHours = reading("timer", parseTimer);
+
+          break;
+
+        case "faults": {
+
+          const errors = reading("error", parseJsonList);
+          const warnings = reading("warning", parseJsonList);
+
+          result.faults = ("error" in errors) ? errors : ("error" in warnings) ? warnings : { value: { errors: errors.value, warnings: warnings.value } };
+
+          break;
+        }
+
+        default:
+
+          break;
+      }
+    }
+
+    return result;
+  }
+
   public async identify(): Promise<ProjectorIdentity> {
 
     const replies = await this.#session([ "modelname ?", "serialnum ?", "version ?", "mac_address ?" ]);
@@ -197,9 +291,10 @@ export class AdcpTransport implements ProjectorTransport {
     return expectValue(name, (await this.#session([name + " ?"]))[0]);
   }
 
+  // Sets come from HomeKit, so they jump ahead of queued polls to keep the Home app responsive.
   async #set(name: string, value: string): Promise<void> {
 
-    expectOk(name, (await this.#session([command(name, value)]))[0]);
+    expectOk(name, (await this.#session([command(name, value)], { priority: true }))[0]);
   }
 
   // Run commands in one authenticated connection. Error replies are returned, not thrown, so a batch can contain queries a model does not support; only

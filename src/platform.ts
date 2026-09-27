@@ -11,6 +11,7 @@ import type { AccessoryContext } from "./projector/context.ts";
 import { CompanionAccessory } from "./projector/companion.ts";
 import { ErrorCode } from "./protocol/errors.ts";
 import { ProjectorCache } from "./projector/cache.ts";
+import type { ProjectorConfig } from "./config.ts";
 import { ProjectorController } from "./projector/controller.ts";
 import { TelevisionAccessory } from "./projector/tv.ts";
 import { describeError } from "./lib/reporter.ts";
@@ -76,30 +77,14 @@ export class SonyProjectorsPlatform implements DynamicPlatformPlugin {
 
     for(const config of parsed.projectors) {
 
-      if(!options.test(Option.DEVICE, config.id)) {
+      try {
 
-        this.#log.info("%s (%s) is hidden from HomeKit by a feature option.", config.name, config.host);
+        this.#setUpProjector(config, options, cache, external, keep, parsed.debug);
+      } catch(error) {
 
-        continue;
+        // One projector failing to set up must not take the others down with it.
+        this.#log.error("Unable to set up %s (%s): %s", config.name, config.host, describeError(error));
       }
-
-      const log = projectorLog(this.#log, () => config.name, () => parsed.debug);
-      const controller = new ProjectorController({ config, initial: cache.get(config.id), isEnabled: (option): boolean => options.test(option, config.id), log,
-        signal: this.#abort.signal });
-
-      controller.onLearned(() => cache.update(config.id, { capabilities: controller.capabilities, identity: controller.identity, protocol: controller.protocol }));
-
-      const context: AccessoryContext = { api: this.#api, cache, config, controller, enabled: (option) => options.test(option, config.id), log,
-        value: (option) => options.value(option, config.id) };
-
-      external.push(new TelevisionAccessory(context).accessory);
-
-      if(CompanionAccessory.wanted(context)) {
-
-        keep.add(this.#companion(context).UUID);
-      }
-
-      controller.start();
     }
 
     if(external.length) {
@@ -108,6 +93,36 @@ export class SonyProjectorsPlatform implements DynamicPlatformPlugin {
     }
 
     this.#removeStale(keep);
+  }
+
+  // Set up one projector: its controller, TV accessory and, when wanted, its companion accessory.
+  #setUpProjector(config: ProjectorConfig, options: FeatureOptions, cache: ProjectorCache, external: PlatformAccessory[], keep: Set<string>,
+    debug: boolean): void {
+
+    if(!options.test(Option.DEVICE, config.id)) {
+
+      this.#log.info("%s (%s) is hidden from HomeKit by a feature option.", config.name, config.host);
+
+      return;
+    }
+
+    const log = projectorLog(this.#log, () => config.name, () => debug);
+    const controller = new ProjectorController({ config, initial: cache.get(config.id), isEnabled: (option): boolean => options.test(option, config.id), log,
+      signal: this.#abort.signal });
+
+    controller.onLearned(() => cache.update(config.id, { capabilities: controller.capabilities, identity: controller.identity, protocol: controller.protocol }));
+
+    const context: AccessoryContext = { api: this.#api, cache, config, controller, enabled: (option) => options.test(option, config.id), log,
+      value: (option) => options.value(option, config.id) };
+
+    external.push(new TelevisionAccessory(context).accessory);
+
+    if(CompanionAccessory.wanted(context)) {
+
+      keep.add(this.#companion(context).UUID);
+    }
+
+    controller.start();
   }
 
   // Reuse the cached companion if Homebridge restored one, otherwise create and register it.

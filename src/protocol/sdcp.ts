@@ -4,11 +4,12 @@
  * real authentication: the 4-character "community" is sent in plaintext and is also broadcast by the projector, so it is a compatibility setting, not a secret.
  */
 import { Action, FrameReader, Item, NgCode, decodeFrame, encodeRequest, faultNames, fromCode, toCode, tokens } from "./sdcp-codec.ts";
-import type { Capabilities, Faults, PowerState, ProjectorIdentity, ProjectorTransport, TransportOptions } from "./types.ts";
+import type { Capabilities, Faults, PollRequest, PollResult, PowerState, ProjectorIdentity, ProjectorTransport, TransportOptions } from "./types.ts";
 import { ErrorCode, ProjectorError, fromSocketError } from "./errors.ts";
 import { CommandQueue } from "./queue.ts";
 import { DEFAULTS } from "../settings.ts";
 import { Socket } from "node:net";
+import { pollIndividually } from "./poll.ts";
 
 export interface SdcpTransportOptions extends TransportOptions {
 
@@ -115,6 +116,12 @@ export class SdcpTransport implements ProjectorTransport {
     throw new ProjectorError(ErrorCode.PROTO_UNSUPPORTED, "Remote key '" + key + "' is not available over SDCP. Use ADCP if the projector supports it.");
   }
 
+  // SDCP has one item per request, so a poll is a series of reads.
+  public async poll(request: PollRequest): Promise<PollResult> {
+
+    return pollIndividually(this, request);
+  }
+
   public async identify(): Promise<ProjectorIdentity> {
 
     const identity: ProjectorIdentity = {};
@@ -157,8 +164,22 @@ export class SdcpTransport implements ProjectorTransport {
         return true;
       } catch(error) {
 
-        // "Not applicable now" (standby) still means the item exists.
-        return (error instanceof ProjectorError) && (error.code === ErrorCode.BUSY);
+        // Only "no such item" rules a feature out. "Not applicable now" (standby) still means the item exists, and anything else (a timeout, a reset) says
+        // nothing about the model, so it fails discovery and discovery is retried on a later poll.
+        if(error instanceof ProjectorError) {
+
+          if(error.code === ErrorCode.PROTO_UNSUPPORTED) {
+
+            return false;
+          }
+
+          if(error.code === ErrorCode.BUSY) {
+
+            return true;
+          }
+        }
+
+        throw error;
       }
     };
 
@@ -198,9 +219,10 @@ export class SdcpTransport implements ProjectorTransport {
     return data.readUInt16BE(0);
   }
 
+  // Sets come from HomeKit, so they jump ahead of queued polls to keep the Home app responsive.
   async #request(action: number, item: number, value?: number): Promise<Buffer> {
 
-    return this.#queue.run(async () => this.#exchange(encodeRequest(action, item, value, this.#community), item));
+    return this.#queue.run(async () => this.#exchange(encodeRequest(action, item, value, this.#community), item), { priority: action === Action.SET });
   }
 
   async #exchange(request: Buffer, item: number): Promise<Buffer> {
@@ -250,9 +272,17 @@ export class SdcpTransport implements ProjectorTransport {
           return;
         }
 
-        const reply = decodeFrame(frame);
-
         this.#debug("SDCP " + this.endpoint + " <- " + frame.toString("hex"));
+
+        // Every SDCP reply starts with version 0x02 and category 0x0A; anything else is not a Sony projector speaking SDCP.
+        if((frame[0] !== 0x02) || (frame[1] !== 0x0a)) {
+
+          finish(new ProjectorError(ErrorCode.PROTO_INVALID, this.endpoint + ": the reply is not SDCP; is this the right address and port?"));
+
+          return;
+        }
+
+        const reply = decodeFrame(frame);
 
         if(reply.item !== item) {
 

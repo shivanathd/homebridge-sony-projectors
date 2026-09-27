@@ -20,6 +20,9 @@ export interface CachedProjector {
   capabilities?: Capabilities;
   identity?: ProjectorIdentity;
   inputs?: Record<string, InputPreference>;
+
+  // The TV's name as set in the Home app.
+  name?: string;
   protocol?: Protocol;
 }
 

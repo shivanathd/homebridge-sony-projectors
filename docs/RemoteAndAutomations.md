@@ -48,7 +48,9 @@ details are in the Homebridge log.
 **Movie night.** Automation: *When Projector Ready detects occupancy* > set a scene that dims the lights, closes the blinds, and turns on "Cinema Film 1 Mode".
 Starting it from the Ready sensor instead of the power switch means the scene runs once the picture is actually on.
 
-**Gaming.** Scene "Game": turn on the projector, select the console's HDMI input on the TV tile, turn on "Game Mode".
+**Gaming.** The projector only accepts input and picture changes once it is on, so split it in two. Scene "Game": turn on the projector. Automation: *When
+Projector Ready detects occupancy* > select the console's HDMI input and turn on "Game Mode". (If you also use a movie-night automation on the same sensor,
+use a Shortcut to choose which one runs.)
 
 **Scope content.** Scene "Scope": turn on "Aspect 2.35 Zoom". Pair it with a masking or screen controller if you have one.
 

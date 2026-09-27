@@ -37,6 +37,29 @@ export interface Faults {
   warnings: readonly string[];
 }
 
+// What one poll should read. Power is always read.
+export interface PollRequest {
+
+  blank: boolean;
+  faults: boolean;
+  lightHours: boolean;
+  picture: boolean;
+}
+
+// One optional reading: its value, or the error the projector gave for it (unavailable in standby, not supported, ...).
+export type Reading<T> = { error: unknown } | { value: T };
+
+export interface PollResult {
+
+  aspect?: Reading<string>;
+  blank?: Reading<boolean>;
+  faults?: Reading<Faults>;
+  input?: Reading<string>;
+  lightHours?: Reading<number | null>;
+  pictureMode?: Reading<string>;
+  power: PowerState;
+}
+
 export interface ProjectorTransport {
 
   // A human-readable "host:port" for log lines.
@@ -53,6 +76,9 @@ export interface ProjectorTransport {
   getPictureMode(): Promise<string>;
   getPower(): Promise<PowerState>;
   identify(): Promise<ProjectorIdentity>;
+
+  // Read everything a poll needs, as cheaply as the protocol allows (ADCP: one connection). Rejects only when power cannot be read.
+  poll(request: PollRequest): Promise<PollResult>;
   sendKey(key: string): Promise<void>;
   setAspect(aspect: string): Promise<void>;
   setBlank(on: boolean): Promise<void>;

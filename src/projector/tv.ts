@@ -39,7 +39,16 @@ export class TelevisionAccessory {
     const tv = acquireService(this.accessory, Service.Television, config.name);
 
     this.#tv = tv;
-    tv.setCharacteristic(Characteristic.ConfiguredName, config.name);
+
+    // Keep a name given in the Home app across restarts; external accessories are not cached by Homebridge.
+    tv.setCharacteristic(Characteristic.ConfiguredName, context.cache.get(config.id).name ?? config.name);
+    tv.getCharacteristic(Characteristic.ConfiguredName).onSet((value: CharacteristicValue) => {
+
+      if(typeof value === "string") {
+
+        context.cache.update(config.id, { name: value });
+      }
+    });
     tv.setCharacteristic(Characteristic.SleepDiscoveryMode, Characteristic.SleepDiscoveryMode.ALWAYS_DISCOVERABLE);
 
     // Reads never touch the network: they return cached state, or "No Response" while the projector cannot be reached.
@@ -211,6 +220,14 @@ export class TelevisionAccessory {
       return;
     }
 
+    // A button whose option is disabled (Disable.Remote.Back) does nothing; an unset one uses its default.
+    const mapped = (option: string, fallback: string): string => {
+
+      const configured = value(option);
+
+      return (configured === null) ? "none" : (configured ?? fallback);
+    };
+
     const actions: Partial<Record<number, string>> = {
 
       [RemoteKey.ARROW_UP]: "up",
@@ -218,10 +235,10 @@ export class TelevisionAccessory {
       [RemoteKey.ARROW_LEFT]: "left",
       [RemoteKey.ARROW_RIGHT]: "right",
       [RemoteKey.SELECT]: "enter",
-      [RemoteKey.BACK]: value(Option.REMOTE_BACK) ?? "return",
+      [RemoteKey.BACK]: mapped(Option.REMOTE_BACK, "return"),
       [RemoteKey.EXIT]: "menu",
-      [RemoteKey.INFORMATION]: value(Option.REMOTE_INFO) ?? "menu",
-      [RemoteKey.PLAY_PAUSE]: value(Option.REMOTE_PLAY_PAUSE) ?? "blank"
+      [RemoteKey.INFORMATION]: mapped(Option.REMOTE_INFO, "menu"),
+      [RemoteKey.PLAY_PAUSE]: mapped(Option.REMOTE_PLAY_PAUSE, "blank")
     };
 
     await this.#remoteAction(actions[key] ?? "none");

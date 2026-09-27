@@ -4,7 +4,7 @@
  * accessories read the store and call the command methods. Every failure here ends as a logged, coded error or a rejected promise that its caller handles; there
  * is no fire-and-forget I/O, which is exactly what crashed the 2018 plugin (S1 in the research report).
  */
-import type { Capabilities, ProjectorIdentity, ProjectorTransport, Protocol } from "../protocol/types.ts";
+import type { Capabilities, ProjectorIdentity, ProjectorTransport, Protocol, Reading } from "../protocol/types.ts";
 import { ErrorCode, ProjectorError, isProjectorError } from "../protocol/errors.ts";
 import { ErrorReporter, describeError } from "../lib/reporter.ts";
 import type { ProjectorState, StateKey } from "./state.ts";
@@ -70,6 +70,8 @@ export class ProjectorController {
 
   #capabilities: Capabilities;
   #capabilitiesConfirmed = false;
+  #capabilitiesProbed = false;
+  #connecting: Promise<ProjectorTransport> | null = null;
   readonly #config: ProjectorConfig;
   #failures = 0;
   #identity: ProjectorIdentity;
@@ -252,13 +254,28 @@ export class ProjectorController {
 
     try {
 
+      // While polls are already failing to reach the projector, fail at once instead of making HomeKit wait out a network timeout: HAP warns about writes
+      // slower than 3 seconds, and the Home app already shows No Response.
+      if(this.#reporter.code?.startsWith("SPJ-NET")) {
+
+        throw new ProjectorError(ErrorCode.NET_UNREACHABLE, this.#config.host + ": the projector is not responding (it has been unreachable since the last " +
+          "successful poll).");
+      }
+
       await run(await this.#ensureTransport());
       this.#wake?.();
     } catch(error) {
 
-      const level = (isProjectorError(error) && (error.code === ErrorCode.BUSY)) ? "warn" : "error";
+      const busy = isProjectorError(error) && (error.code === ErrorCode.BUSY);
 
-      this.#log[level]("Unable to %s: %s", action, describeError(error));
+      // A remote key pressed in standby is routine; do not make it a warning.
+      if(busy && quiet) {
+
+        this.#log.debug("Unable to %s: %s", action, describeError(error));
+      } else {
+
+        this.#log[busy ? "warn" : "error"]("Unable to %s: %s", action, describeError(error));
+      }
 
       throw error;
     }
@@ -276,13 +293,30 @@ export class ProjectorController {
       return this.#transport;
     }
 
+    // One connection attempt at a time: a HomeKit command and the poll loop must not both detect and build separate transports (with separate queues).
+    this.#connecting ??= this.#connect().finally(() => {
+
+      this.#connecting = null;
+    });
+
+    return this.#connecting;
+  }
+
+  async #connect(): Promise<ProjectorTransport> {
+
     if(!this.#protocol) {
 
-      const protocol = await detectProtocol(this.#settings());
+      const protocol = await detectProtocol(this.#settings(), this.#signal);
 
       this.#log.info("Detected %s control.", protocol.toUpperCase());
       this.#protocol = protocol;
       this.#learned();
+    }
+
+    // Shutdown may have happened while detecting.
+    if(this.#signal.aborted) {
+
+      throw new ProjectorError(ErrorCode.ABORTED, "Homebridge is shutting down.");
     }
 
     this.#transport = createTransport(this.#settings(), this.#protocol);
@@ -344,6 +378,7 @@ export class ProjectorController {
 
         this.#transport?.close();
         this.#transport = null;
+        this.#protocol = undefined;
       }
 
       if((code === ErrorCode.AUTH_FAILED) || (code === ErrorCode.AUTH_REQUIRED)) {
@@ -357,59 +392,67 @@ export class ProjectorController {
 
   async #poll(transport: ProjectorTransport): Promise<void> {
 
-    const power = await transport.getPower();
-
-    this.store.update({ power, reachable: true });
-
-    if(power === "on") {
-
-      const capabilities = this.#capabilities;
-
-      await this.#read("input", async () => transport.getInput());
-      await this.#read("pictureMode", async () => transport.getPictureMode());
-      await this.#read("aspect", async () => transport.getAspect());
-
-      if(capabilities.blank) {
-
-        await this.#read("blank", async () => transport.getBlank());
-      }
-    }
-
     const now = Date.now();
+    const capabilities = this.#capabilities;
 
-    if(this.#capabilities.lightHours && ((now - this.#lastLightHours) >= this.#timings.lightHoursEveryMs)) {
+    // Picture settings are only readable while the projector is on; skip them in standby to keep standby polls to a single query.
+    const picture = this.store.get("power") !== "standby";
+    const lightHours = capabilities.lightHours && ((now - this.#lastLightHours) >= this.#timings.lightHoursEveryMs);
+    const faults = capabilities.faults && ((now - this.#lastFaults) >= this.#timings.faultsEveryMs);
+    const result = await transport.poll({ blank: picture && capabilities.blank, faults, lightHours, picture });
+
+    this.store.update({ power: result.power, reachable: true });
+
+    if(lightHours) {
 
       this.#lastLightHours = now;
-      await this.#read("lightHours", async () => transport.getLightHours());
     }
 
-    if(this.#capabilities.faults && ((now - this.#lastFaults) >= this.#timings.faultsEveryMs)) {
+    if(faults) {
 
       this.#lastFaults = now;
+    }
 
-      try {
+    // Picture readings taken in the same batch as a standby power reading are meaningless.
+    if(result.power === "on") {
 
-        const { errors, warnings } = await transport.getFaults();
+      this.#apply("input", result.input);
+      this.#apply("pictureMode", result.pictureMode);
+      this.#apply("aspect", result.aspect);
+      this.#apply("blank", result.blank);
+    }
 
-        this.store.update({ faults: [ ...errors, ...warnings ] });
-      } catch(error) {
+    this.#apply("lightHours", result.lightHours);
 
-        this.#tolerate("faults", error);
+    if(result.faults) {
+
+      if("value" in result.faults) {
+
+        this.store.update({ faults: [ ...result.faults.value.errors, ...result.faults.value.warnings ] });
+      } else {
+
+        this.#tolerate("faults", result.faults.error);
       }
     }
   }
 
-  // Read one optional value. A value that is unavailable right now (switching signal, standby) or unsupported by this model is skipped; network failures propagate
-  // and fail the whole poll.
-  async #read<K extends "aspect" | "blank" | "input" | "lightHours" | "pictureMode">(key: K, get: () => Promise<ProjectorState[K]>): Promise<void> {
+  // Apply one optional reading. A value that is unavailable right now (switching signal, standby) or unsupported by this model is skipped; anything else fails
+  // the poll.
+  #apply<K extends "aspect" | "blank" | "input" | "lightHours" | "pictureMode">(key: K, reading: Reading<ProjectorState[K]> | undefined): void {
 
-    try {
+    if(!reading) {
 
-      this.store.update({ [key]: await get() });
-    } catch(error) {
-
-      this.#tolerate(key, error);
+      return;
     }
+
+    if("value" in reading) {
+
+      this.store.update({ [key]: reading.value });
+
+      return;
+    }
+
+    this.#tolerate(key, reading.error);
   }
 
   #tolerate(what: string, error: unknown): void {
@@ -448,7 +491,10 @@ export class ProjectorController {
       }
     }
 
-    if(!this.#capabilitiesConfirmed) {
+    // Probe once in any state, then again only once the projector is on: some models only report their value ranges while on.
+    if(!this.#capabilitiesConfirmed && (!this.#capabilitiesProbed || (this.store.get("power") === "on"))) {
+
+      this.#capabilitiesProbed = true;
 
       try {
 
@@ -537,19 +583,15 @@ export class ProjectorController {
 
     await new Promise<void>((resolve) => {
 
-      const timer = setTimeout(done, ms);
-
-      function done(): void {
+      const done = (): void => {
 
         clearTimeout(timer);
-        resolve();
-      }
-
-      this.#wake = (): void => {
-
         this.#wake = null;
-        done();
+        resolve();
       };
+      const timer = setTimeout(done, ms);
+
+      this.#wake = done;
     });
   }
 }

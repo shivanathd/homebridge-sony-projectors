@@ -23,3 +23,5 @@ Implemented in v0.1.0 (`src/projector/controller.ts`, `state.ts`).
 - Polling: 10 s when on, 3× slower in standby, 2 s during warm-up and cool-down.
 - Backoff doubles up to 60 s. An auth failure pauses for 30 s.
 - The S1 crash has a regression test. The full lifecycle (unplug, No Response, recovery) was verified live on Homebridge 2.4 over HAP.
+- The SDAP push listener in this decision is deferred to a later release (see ADR-0003). v0.1.0 relies on polling alone.
+- After the v0.1.0 code review: each poll is one ADCP connection (`transport.poll()`); connecting is single-flight and abort-aware; HomeKit writes fail fast during a known outage, and sets are queued ahead of polls.

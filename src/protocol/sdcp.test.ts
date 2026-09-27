@@ -18,7 +18,7 @@ after(async () => {
 async function setup(options: Parameters<typeof startFakeSdcp>[0] = {}, community?: string): Promise<{ fake: FakeSdcp; transport: SdcpTransport }> {
 
   const fake = await startFakeSdcp(options);
-  const transport = new SdcpTransport({ community, host: fake.host, pacingMs: 0, port: fake.port });
+  const transport = new SdcpTransport({ commandTimeoutMs: 300, community, host: fake.host, pacingMs: 0, port: fake.port });
 
   fakes.push(fake);
   transports.push(transport);
@@ -90,5 +90,12 @@ describe("SdcpTransport", () => {
     assert.deepEqual(capabilities.inputs, [ "hdmi1", "hdmi2" ]);
     assert.equal(capabilities.remote, false);
     await assert.rejects(transport.sendKey("menu"), hasCode(ErrorCode.PROTO_UNSUPPORTED));
+  });
+
+  test("a lost reply during capability discovery fails discovery instead of disabling the feature", async () => {
+
+    const { transport } = await setup({ drop: [0x0030] });
+
+    await assert.rejects(transport.capabilities(), hasCode(ErrorCode.NET_TIMEOUT));
   });
 });

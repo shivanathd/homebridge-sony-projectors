@@ -139,7 +139,7 @@ describe("TelevisionAccessory", () => {
 
   test("remote buttons can be remapped or disabled with feature options", async () => {
 
-    const { controller, fake, fakeApi, tv } = await rig({ configured: [ "Enable.Remote.PlayPause=none", "Enable.Remote.Info=return" ],
+    const { controller, fake, fakeApi, tv } = await rig({ configured: [ "Enable.Remote.PlayPause=none", "Enable.Remote.Info=return", "Disable.Remote.Back" ],
       fakeOptions: { state: { power: "on" } } });
     const { Characteristic, Service } = fakeApi.api.hap;
     const key = tv.accessory.getService(Service.Television)!.getCharacteristic(Characteristic.RemoteKey);
@@ -147,12 +147,14 @@ describe("TelevisionAccessory", () => {
     await waitUntil(() => controller.store.get("reachable"), { description: "reachable", timeoutMs: 2000 });
     await key.handleSetRequest(Characteristic.RemoteKey.PLAY_PAUSE);
     await key.handleSetRequest(Characteristic.RemoteKey.INFORMATION);
+    await key.handleSetRequest(Characteristic.RemoteKey.BACK);
 
+    // Info was remapped to return; Play/Pause and a disabled Back do nothing.
     assert.deepEqual(fake!.state.keys, ["return"]);
     assert.equal(fake!.state.blank, "off");
   });
 
-  test("renaming or hiding an input in the Home app is remembered", async () => {
+  test("renaming the TV, or renaming or hiding an input, in the Home app is remembered", async () => {
 
     const { fakeApi, tv } = await rig();
     const { Characteristic, Service } = fakeApi.api.hap;
@@ -162,6 +164,11 @@ describe("TelevisionAccessory", () => {
     await hdmi2.getCharacteristic(Characteristic.TargetVisibilityState).handleSetRequest(Characteristic.TargetVisibilityState.HIDDEN);
 
     assert.equal(hdmi2.getCharacteristic(Characteristic.CurrentVisibilityState).value, Characteristic.CurrentVisibilityState.HIDDEN);
-    assert.deepEqual(new ProjectorCache(fakeApi.storagePath, capturingLog()).get("127-0-0-1").inputs, { hdmi2: { hidden: true, name: "Apple TV" } });
+    await tv.accessory.getService(Service.Television)!.getCharacteristic(Characteristic.ConfiguredName).handleSetRequest("Cinema");
+
+    const cached = new ProjectorCache(fakeApi.storagePath, capturingLog()).get("127-0-0-1");
+
+    assert.deepEqual(cached.inputs, { hdmi2: { hidden: true, name: "Apple TV" } });
+    assert.equal(cached.name, "Cinema");
   });
 });
