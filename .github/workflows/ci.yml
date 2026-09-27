@@ -62,7 +62,8 @@ jobs:
           node -e '
             const [{ files, size }] = require("./pack.json");
             const paths = files.map((f) => f.path);
-            const bad = paths.filter((p) => /\.test\.|\.helpers\.|^src\/|^test\/|\.map$/.test(p));
+            // Our own sources, tests and source maps must not ship. (The vendored settings-UI library under homebridge-ui/public/lib ships its own maps.)
+            const bad = paths.filter((p) => /\.test\.|\.helpers\.|^src\/|^test\/|^dist\/.*\.map$/.test(p));
             console.log(paths.length + " files, " + size + " bytes");
             if(bad.length) { console.error("Unexpected files in package:", bad); process.exit(1); }
             for(const required of ["dist/index.js", "config.schema.json", "homebridge-ui/server.js", "homebridge-ui/public/index.html", "LICENSE"]) {

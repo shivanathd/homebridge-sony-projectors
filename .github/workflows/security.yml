@@ -56,9 +56,19 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+      # The gitleaks binary is used directly (verified against the release checksums) to scan the full history. gitleaks-action computes a
+      # "<first-commit>^..HEAD" range on push, which fails on a repository's first push because the root commit has no parent.
+      - name: Install gitleaks
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: 8.30.1
+        run: |
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}"
+          curl -sSfL -o "gitleaks_${VERSION}_linux_x64.tar.gz" "${base}/gitleaks_${VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o checksums.txt "${base}/gitleaks_${VERSION}_checksums.txt"
+          grep " gitleaks_${VERSION}_linux_x64.tar.gz$" checksums.txt | sha256sum -c -
+          tar -xzf "gitleaks_${VERSION}_linux_x64.tar.gz" gitleaks
+      - name: Scan the full git history
+        run: ./gitleaks git --redact --verbose --exit-code 1 .
 
   dependency-review:
     name: Dependency review
