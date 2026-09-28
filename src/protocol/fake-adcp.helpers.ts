@@ -8,6 +8,10 @@ import type { AddressInfo, Server, Socket } from "node:net";
 import { createHash, randomBytes } from "node:crypto";
 import { createServer } from "node:net";
 
+// A port nothing listens on, for "projector unreachable" tests. Port 1 needs root to bind, so no parallel test file can take it; a port obtained by opening
+// and closing a random listener can be grabbed by another test's fake projector a moment later.
+export const CLOSED_PORT = 1;
+
 export interface FakeAdcpState {
 
   aspect: string;

@@ -1,29 +1,15 @@
 /* detect.test.ts: Protocol auto-detection. */
+import { CLOSED_PORT, startFakeAdcp } from "./fake-adcp.helpers.ts";
 import { ErrorCode, isProjectorError } from "./errors.ts";
 import { after, describe, test } from "node:test";
 import { createTransport, detectProtocol } from "./detect.ts";
 import assert from "node:assert/strict";
-import { createServer } from "node:net";
-import { startFakeAdcp } from "./fake-adcp.helpers.ts";
 import { startFakeSdcp } from "./fake-sdcp.helpers.ts";
 
 const cleanups: (() => Promise<void>)[] = [];
 
 after(async () => Promise.all(cleanups.map(async (cleanup) => cleanup())));
 
-// A port with nothing listening on it.
-async function closedPort(): Promise<number> {
-
-  const server = createServer();
-
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-
-  const { port } = server.address() as { port: number };
-
-  await new Promise<void>((resolve) => server.close(() => resolve()));
-
-  return port;
-}
 
 describe("detectProtocol", () => {
 
@@ -41,7 +27,7 @@ describe("detectProtocol", () => {
     const adcp = await startFakeAdcp({ password: "Projector" });
 
     cleanups.push(async () => adcp.close());
-    assert.equal(await detectProtocol({ adcpPort: adcp.port, host: "127.0.0.1", password: "nope", sdcpPort: await closedPort() }), "adcp");
+    assert.equal(await detectProtocol({ adcpPort: adcp.port, host: "127.0.0.1", password: "nope", sdcpPort: CLOSED_PORT }), "adcp");
   });
 
   test("falls back to SDCP", async () => {
@@ -49,12 +35,12 @@ describe("detectProtocol", () => {
     const sdcp = await startFakeSdcp();
 
     cleanups.push(async () => sdcp.close());
-    assert.equal(await detectProtocol({ adcpPort: await closedPort(), host: "127.0.0.1", sdcpPort: sdcp.port }), "sdcp");
+    assert.equal(await detectProtocol({ adcpPort: CLOSED_PORT, host: "127.0.0.1", sdcpPort: sdcp.port }), "sdcp");
   });
 
   test("nothing answering is SPJ-NET-UNREACHABLE", async () => {
 
-    await assert.rejects(detectProtocol({ adcpPort: await closedPort(), host: "127.0.0.1", sdcpPort: await closedPort() }),
+    await assert.rejects(detectProtocol({ adcpPort: CLOSED_PORT, host: "127.0.0.1", sdcpPort: CLOSED_PORT }),
       (error: unknown) => isProjectorError(error) && (error.code === ErrorCode.NET_UNREACHABLE));
   });
 });

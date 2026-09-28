@@ -1,4 +1,5 @@
 /* tv.test.ts: The Television accessory against a real HAP stack, a real controller and the fake projector. */
+import { CLOSED_PORT, startFakeAdcp } from "../protocol/fake-adcp.helpers.ts";
 import { Categories, FeatureOptions, HAPStatus } from "homebridge-plugin-utils";
 import { after, describe, test } from "node:test";
 import { capturingLog, waitUntil } from "homebridge-plugin-utils/testing";
@@ -11,8 +12,6 @@ import { ProjectorController } from "./controller.ts";
 import { TelevisionAccessory } from "./tv.ts";
 import assert from "node:assert/strict";
 import { createFakeApi } from "../fake-api.helpers.ts";
-import { createServer } from "node:net";
-import { startFakeAdcp } from "../protocol/fake-adcp.helpers.ts";
 
 const TIMINGS = { authPauseMs: 100, backoffCeilingMs: 50, faultsEveryMs: 0, lightHoursEveryMs: 0, pollMs: 30, standbyPollMs: 30, transitionPollMs: 20 };
 const cleanups: (() => unknown)[] = [];
@@ -32,16 +31,7 @@ async function rig({ configured = [], fakeOptions = {}, unreachable = false }: {
   {}): Promise<Rig> {
 
   const fake = unreachable ? null : await startFakeAdcp({ transitionMs: 40, ...fakeOptions });
-  let port = fake?.port ?? 0;
-
-  if(!fake) {
-
-    const server = createServer();
-
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    port = (server.address() as { port: number }).port;
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-  }
+  const port = fake?.port ?? CLOSED_PORT;
 
   const fakeApi = createFakeApi();
   const abort = new AbortController();

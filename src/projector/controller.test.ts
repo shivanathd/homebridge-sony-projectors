@@ -1,4 +1,5 @@
 /* controller.test.ts: The projector controller against the fake ADCP projector. */
+import { CLOSED_PORT, startFakeAdcp } from "../protocol/fake-adcp.helpers.ts";
 import { ErrorCode, isProjectorError } from "../protocol/errors.ts";
 import type { FakeAdcp, FakeAdcpOptions } from "../protocol/fake-adcp.helpers.ts";
 import { after, describe, test } from "node:test";
@@ -8,7 +9,6 @@ import { ProjectorController } from "./controller.ts";
 import assert from "node:assert/strict";
 import { createServer } from "node:net";
 import { setTimeout as sleep } from "node:timers/promises";
-import { startFakeAdcp } from "../protocol/fake-adcp.helpers.ts";
 
 const TIMINGS = { authPauseMs: 150, backoffCeilingMs: 60, faultsEveryMs: 0, lightHoursEveryMs: 0, pollMs: 40, standbyPollMs: 40, transitionPollMs: 20 };
 const cleanups: (() => Promise<void> | void)[] = [];
@@ -23,18 +23,6 @@ after(async () => {
   }
 });
 
-async function closedPort(): Promise<number> {
-
-  const server = createServer();
-
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-
-  const { port } = server.address() as { port: number };
-
-  await new Promise<void>((resolve) => server.close(() => resolve()));
-
-  return port;
-}
 
 function projectorConfig(port: number, extra: Partial<ProjectorConfig> = {}): ProjectorConfig {
 
@@ -90,7 +78,7 @@ describe("ProjectorController: polling", () => {
 
     const log = capturingLog();
     const abort = new AbortController();
-    const controller = new ProjectorController({ config: projectorConfig(await closedPort()), isEnabled: () => true, log, pacingMs: 0, signal: abort.signal,
+    const controller = new ProjectorController({ config: projectorConfig(CLOSED_PORT), isEnabled: () => true, log, pacingMs: 0, signal: abort.signal,
       timings: TIMINGS });
 
     cleanups.push(() => abort.abort());
@@ -159,7 +147,7 @@ describe("ProjectorController: commands", () => {
 
       const log = capturingLog();
       const abort = new AbortController();
-      const controller = new ProjectorController({ config: projectorConfig(await closedPort()), isEnabled: () => true, log, pacingMs: 0, signal: abort.signal,
+      const controller = new ProjectorController({ config: projectorConfig(CLOSED_PORT), isEnabled: () => true, log, pacingMs: 0, signal: abort.signal,
         timings: TIMINGS });
 
       controller.start();
@@ -278,7 +266,7 @@ describe("ProjectorController: review regressions", () => {
 
     const log = capturingLog();
     const abort = new AbortController();
-    const controller = new ProjectorController({ config: projectorConfig(await closedPort()), isEnabled: () => true, log, pacingMs: 0, signal: abort.signal,
+    const controller = new ProjectorController({ config: projectorConfig(CLOSED_PORT), isEnabled: () => true, log, pacingMs: 0, signal: abort.signal,
       timings: TIMINGS });
 
     cleanups.push(() => abort.abort());

@@ -1,13 +1,12 @@
 /* adcp.test.ts: AdcpTransport against the fake projector. */
+import { CLOSED_PORT, startFakeAdcp } from "./fake-adcp.helpers.ts";
 import { ErrorCode, isProjectorError } from "./errors.ts";
 import type { FakeAdcp, FakeAdcpOptions } from "./fake-adcp.helpers.ts";
 import { after, describe, test } from "node:test";
 import { AdcpTransport } from "./adcp.ts";
 import { DEFAULT_CAPABILITIES } from "./types.ts";
 import assert from "node:assert/strict";
-import { createServer } from "node:net";
 import { setTimeout as sleep } from "node:timers/promises";
-import { startFakeAdcp } from "./fake-adcp.helpers.ts";
 
 const fakes: FakeAdcp[] = [];
 const transports: AdcpTransport[] = [];
@@ -94,15 +93,7 @@ describe("AdcpTransport: connection and authentication", () => {
 
   test("nothing listening is SPJ-NET-UNREACHABLE", async () => {
 
-    const server = createServer();
-
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-
-    const port = (server.address() as { port: number }).port;
-
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-
-    const transport = new AdcpTransport({ host: "127.0.0.1", pacingMs: 0, port });
+    const transport = new AdcpTransport({ host: "127.0.0.1", pacingMs: 0, port: CLOSED_PORT });
 
     transports.push(transport);
     await assert.rejects(transport.getPower(), hasCode(ErrorCode.NET_UNREACHABLE));
