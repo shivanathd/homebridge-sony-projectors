@@ -53,7 +53,7 @@
   },
   "dependencies": {
     "@homebridge/plugin-ui-utils": "2.2.6",
-    "homebridge-plugin-utils": "2.4.0"
+    "homebridge-plugin-utils": "2.5.0"
   },
   "devDependencies": {
     "@eslint/js": "9.39.2",
